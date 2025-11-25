@@ -1,217 +1,159 @@
-# Daily ToDo Generator （Python）
+# 📘 ToDo Discord Bot System - README（構成メイン説明版）
 
-Python で **毎朝の ToDo ファイルを自動生成し、LINE / Discord / macOS 通知も行うツール** の README です。
-VSCode をメイン開発環境として 36 時間以内に完成させられるシンプルな構成になっています。
+このシステムは **毎日のToDo外枠ファイルを自動生成し、手で書き込んだタスク内容を Discord の `/report` コマンドで送信できる** ようにするためのミニマルな ToDo 管理基盤です。
 
----
-
-## 📌 概要
-
-このツールは、以下を自動で行う **独自の ToDo 生成ツール** です：
-
-* 毎朝手動でコマンドを実行すると、その日の ToDo Markdown を生成
-* 生成した ToDo を LINE と Discord に送信
-* macOS 通知センターに通知
-* PC 起動時にも自動実行可能（macOS LaunchAgent）
-* テンプレートベースで編集が容易
-
-ファイルは `~/todo/YYYY-MM-DD.md` の形で保存されます。
+コード詳細ではなく、**構成・仕組み・役割** に重点を置いて説明します。
 
 ---
 
-## 📁 ディレクトリ構成
+# 🚀 システムの全体像
+
+この ToDo システムは、以下の 3 要素で構成されています：
+
+## 1️⃣ **外枠を生成する仕組み（main.py）**
+
+* 毎日の ToDo ファイル（Markdown）を自動生成する担当。
+* ファイル名は `YYYY-MM-DD.md`。
+* テンプレートの内容だけを生成し、通知は行わない。
+* あなたがタスクを書き込むための **“空の器”** を作る役割。
+
+📄 出力先フォルダ：
 
 ```
-todo-generator/
-├── main.py                # 実行スクリプト
-├── templates/
-│   └── default_template.md # ToDoテンプレート
-├── config.example.json    # 設定ファイルの例（任意）
-└── README.md
+~/todo/
 ```
 
----
-
-## 🧩 1. テンプレート設定
-
-ToDo の初期内容は `templates/default_template.md` から生成されます。
-
-例：
-
-```md
-# {{date}} の ToDo
-
-## 最優先
-- [ ] タスク1
-
-## 勉強
-- [ ] 学習 30分
-
-## プロジェクト
-- [ ] プロジェクトA
-
-## 習慣
-- [ ] 筋トレ
-- [ ] 日記
-
-## メモ
-- 自由記述
-```
-
-`{{date}}` は自動的に置換されます。
-
----
-
-## 🔐 2. 環境変数の設定（重要）
-
-通知に必要な情報は **環境変数で管理** します。
-
-### LINE Notify トークン
-
-1. LINE Notify にログイン
-2. 「トークンを発行」で個人 or グループ用トークンを取得
-3. macOS の `~/.zshenv` に追加
-
-```bash
-export LINE_NOTIFY_TOKEN="YOUR_TOKEN_HERE"
-```
-
-### Discord Webhook URL
-
-Discord サーバー → チャンネル設定 → Integrations → Webhooks → URL をコピー
-
-```bash
-export DISCORD_WEBHOOK_URL="YOUR_WEBHOOK_URL"
-```
-
-編集後：
-
-```bash
-source ~/.zshenv
-```
-
-※ セキュリティのため **GitHub に絶対に公開しないこと**。
-
----
-
-## 🖥 3. 必要パッケージ
-
-```bash
-pip install requests pync python-dateutil
-```
-
-macOS 通知用に `pync` を使います（動かない場合は自動で osascript に fallback）。
-
----
-
-## ⚙️ 4. 実行方法
-
-### 基本
-
-```bash
-python main.py
-```
-
-→ `~/todo/2025-01-01.md` のようなファイルが生成されます。
-
-### よく使うオプション
+📄 テンプレート保存場所：
 
 ```
---open      生成後に VSCode で開く
---dry-run   何が行われるかだけを表示
---no-notify 通知をオフにする
---date      任意の日付で生成
-```
-
-例：
-
-```bash
-python main.py --open
+templates/default_template.md
 ```
 
 ---
 
-## 🔔 5. 通知仕様
+## 2️⃣ **Discord Bot（bot.py）**
 
-### LINE 通知
+* Discord 上で `/report` コマンドを受け取り、当日の ToDo ファイルを読み込んで投稿する役割。
+* ユーザーが「完了報告」したいタイミングで、手書きした内容を全文 Discord に送信する。
+* Bot は常にオンラインで待機し、指示が来たら ToDo ファイルを読む。
 
-メッセージ本文を通知。成功するとステータス 200。
+📦 Bot の 役割
 
-### Discord 通知
+* ユーザー操作に応じた通知
+* ToDo ファイルの読み取り
+* Discord への投稿
 
-Webhook にテキストを送信。
+Bot の存在により、通知のタイミングを自由に決められるのが強みです。
 
-### macOS 通知
+---
 
-`pync` が利用可能ならそれを使用。
-利用不可の場合：
+## 3️⃣ **設定ファイル（config.json）**
 
-```bash
-osascript -e 'display notification "message" with title "title"'
+以下の情報を保存するだけのファイル：
+
+* Discord Bot Token
+* Discord Webhook（投稿先チャンネル）
+
+🔐 セキュリティのため、このファイルは `.gitignore` に入れます。
+
+---
+
+# 🧩 システム構成図（コードなし）
+
+```
+┌─────────────────────────────────────────┐
+│                 ユーザー                  │
+│  手書きでToDoを書く → /report と入力       │
+└─────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│                Discord Bot              │
+│   /report を受信 → 当日ToDoを読み込む      │
+│   → Discord に投稿                         │
+└─────────────────────────────────────────┘
+                 ▲
+                 │
+┌─────────────────────────────────────────┐
+│              ToDo ファイル              │
+│  main.py が作成する外枠テンプレ            │
+│  ユーザーが内容を書き込む                  │
+└─────────────────────────────────────────┘
+                 ▲
+                 │
+┌─────────────────────────────────────────┐
+│                main.py                 │
+│   毎朝 or 起動時に外枠テンプレ生成         │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 6. Mac 起動時に自動実行（任意）
+# 📁 ディレクトリ構成（概要）
 
-PC 起動後に自動で今日の ToDo を作らせたい場合、LaunchAgent を使います。
-
-### 設定ファイル作成
-
-`~/Library/LaunchAgents/com.todo.daily.plist`：
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.todo.daily</string>
-
-  <key>ProgramArguments</key>
-  <array>
-    <string>/usr/bin/python3</string>
-    <string>/path/to/todo-generator/main.py</string>
-  </array>
-
-  <key>RunAtLoad</key>
-  <true/>
-</dict>
-</plist>
+```
+todo-system/
+ ├ main.py                # 外枠生成だけを担当
+ ├ bot.py                 # Discord の /report を担当
+ ├ config.json            # Token & Webhook を保存（非公開）
+ └ templates/
+      └ default_template.md   # ToDo 外枠テンプレ
 ```
 
-ロード：
-
-```bash
-launchctl load ~/Library/LaunchAgents/com.todo.daily.plist
-```
+各ファイルの責務が明確に分離されており、拡張しやすい作りになっています。
 
 ---
 
-## 🧪 7. 動作テスト（推奨）
+# 🔧 Bot を動かすための設定項目（全体構成説明）
 
-1. `--dry-run` で内容確認
-2. `python main.py` でファイル生成確認
-3. LINE / Discord 通知が届くか確認
-4. macOS 通知が表示されるか確認
-5. LaunchAgent を設定してログインして動作を確認
+## ■ Bot Token 設定
+
+Discord Developer Portal で Bot を作成し、Token を取得して config.json に保存。
+
+## ■ Webhook 設定
+
+Discord チャンネル側で Webhook を作成し、報告投稿の送り先を指定。
+
+## ■ Intent 設定（重要）
+
+Bot が `/report` を認識できるよう、
+**Message Content Intent** を ON にする。
+
+## ■ 権限設定（Bot をサーバーへ招待）
+
+* Scopes → `bot` と `applications.commands`
+* Permissions → `Send Messages`
+
+---
+
+# 🎯 システムの動作フロー（わかりやすくまとめ）
+
+1. **朝：**
+
+   * main.py が外枠を生成（通知なし）
+2. **日中：**
+
+   * あなたが書きたい内容を Markdown に記入
+3. **完了：**
+
+   * Discord で `/report` と送信
+4. **Bot：**
+
+   * 該当日のファイルを読み取り
+   * 中身をそのまま Discord に投稿
+
+これで「外枠自動 → 内容手書き → 完了報告はコマンド操作」が実現します。
 
 ---
 
-## 🛡 セキュリティ注意
+# 🔮 拡張構想（構成ベースで発展可能）
 
-* トークン類は絶対に GitHub に公開しない
-* `.gitignore` に `config.json` と秘密情報を追加
-* LINE Notify はレート制限あり（連投に注意）
+* `/todo` → 今日のタスクを読み取って即表示
+* `/done` → 完了リストだけ抽出して送信
+* `/yesterday` → 昨日の ToDo も照会可能に
+* ToDo ファイルの Git 自動保存
+* Notion / Slack など他サービス連携
 
----
-
-## 🔧 拡張案
-
-* Notion / Slack への追加出力
-* テンプレートをマルチファイル化
-* GitHub コミット履歴として「毎日のToDo進捗」をログ化
-* 習慣トラッカー機能の追加
+構造がシンプルなので拡張しやすい設計です。
 
 ---
-Lineは追加しませんでした。
